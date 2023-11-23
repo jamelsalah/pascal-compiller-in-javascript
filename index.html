@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>compilador</title>
+</head>
+<body>
+    <script>
+        // Definição dos tokens
+        const tokens = {
+          NUMBER: /\b\d+\b/,
+          IDENTIFIER: /\b[a-zA-Z]+\w*\b/,
+          OPERATOR: /[-+*/]/,
+          PUNCTUATION: /[.,;()]/,
+          KEYWORDS: ['PROGRAM', 'VAR', 'INTEGER', 'REAL', 'BEGIN', 'END', 'WRITE', 'READ']
+        };
+        
+        // Função para analisar o código fonte
+        function tokenize(code) {
+          const tokenizedCode = [];
+          for (const key in tokens) {
+            if (key === 'KEYWORDS') {
+              tokens[key].forEach(keyword => {
+                const pattern = new RegExp(`\\b${keyword}\\b`, 'g');
+                let match;
+                while ((match = pattern.exec(code)) !== null) {
+                  tokenizedCode.push({ type: key, value: match[0], start: match.index, end: pattern.lastIndex });
+                }
+              });
+            } else {
+              const pattern = tokens[key];
+              let match;
+              const regex = new RegExp(pattern, 'g');
+              while ((match = regex.exec(code)) !== null) {
+                tokenizedCode.push({ type: key, value: match[0], start: match.index, end: regex.lastIndex });
+              }
+            }
+          }
+          return tokenizedCode;
+        }
+        
+        // Código de exemplo
+        const pascalCode = `
+        PROGRAM SimpleProgram;
+        VAR
+            x, y: INTEGER;
+        BEGIN
+            x := 10;
+            y := 20;
+            WRITE(x + y);
+        END.
+        `;
+        
+        // Executando o analisador léxico no código de exemplo
+        function handle() {
+            const tokensFound = tokenize(pascalCode);
+            tokensFound.forEach(token => {
+            console.log(token);
+            });
+
+            p.innerHTML = tokensFound
+        }
+    </script>
+
+    <button onclick="handle()">compile</button>
+    <p id="p"></p>
+</body>
+</html>
