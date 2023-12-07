@@ -3,67 +3,343 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>compilador</title>
+    <link rel="icon" type="image/x-icon" href="favicon.png">
+    <title>compilador de pascal</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .header {
+            display: flex;
+            flex-direction: row;
+            gap: 50px;
+        }
+
+        img {
+            width: 100px;
+            height: 100px;
+        }
+
+        h1 {
+            margin-bottom: 60px;
+        }
+
+        .fields--container {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+        }
+
+        .input--container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .input {
+            width: 400px;
+            height: 600px;
+            resize: none; 
+            overflow-y: auto;
+            padding: 5px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .terminal {
+            border: 1px solid black;
+        }
+    </style>
 </head>
 <body>
+    <div class="header">
+        <img src="download (1).png" alt="">
+        <h1>Pascal to Javascript Compiler</h1>
+        <img src="download.png" alt="">
+    </div>
+
+    <div class="fields--container">
+        <div class="input--container">
+            <h2>Pascal Code</h2>
+            <textarea class="input inputCode"></textarea>
+            <button onclick="handle()">compile code</button>
+        </div>
+
+        <div class="input--container">
+            <h2>Compiled Code</h2>
+            <textarea class="input outputCode"></textarea>
+            <button onclick="handleJS()">run code</button>
+        </div>
+
+        <div class="input--container">
+            <h2>Output</h2>
+            <div class="input terminal"></div>
+        </div>
+    </div>
+    <p id="p"></p>
     <script>
-        // Definição dos tokens
         const tokens = {
-          NUMBER: /\b\d+\b/,
-          IDENTIFIER: /\b[a-zA-Z]+\w*\b/,
-          OPERATOR: /[-+*/]/,
-          PUNCTUATION: /[.,;()]/,
-          KEYWORDS: ['PROGRAM', 'VAR', 'INTEGER', 'REAL', 'BEGIN', 'END', 'WRITE', 'READ']
+            NUMBER: /\b\d+\b/,
+            IDENTIFIER: /\b[a-zA-Z]+\w*\b/,
+            OPERATOR: /[-+*=/><]/,
+            PUNCTUATION: /[.,;():]/,
+            KEYWORDS: ['PROGRAM', 'VAR', 'INTEGER', 'REAL', 'BEGIN', 'END', 'IF', 'ELSE', 'THEN', 'WRITE', 'READ']
         };
-        
-        // Função para analisar o código fonte
-        function tokenize(code) {
-          const tokenizedCode = [];
-          for (const key in tokens) {
-            if (key === 'KEYWORDS') {
-              tokens[key].forEach(keyword => {
-                const pattern = new RegExp(`\\b${keyword}\\b`, 'g');
-                let match;
-                while ((match = pattern.exec(code)) !== null) {
-                  tokenizedCode.push({ type: key, value: match[0], start: match.index, end: pattern.lastIndex });
+
+        var jsCode;
+        var isProgramValid;
+        var firstBegin = true;
+        var countEnds = 0;
+        var tabs = 0
+
+
+        function tokenize(code) {  //Analise Léxica
+            const tokenizedCode = [];
+            let remainingCode = code.trim();
+            
+            while (remainingCode.length > 0) {
+                let foundToken = false;
+
+                for (const key in tokens) {
+                    const pattern = tokens[key];
+                    const regex = new RegExp(`^${pattern.source}`);
+                    const match = regex.exec(remainingCode);
+                    
+                    if (match) {
+                        tokenizedCode.push({ type: key, value: match[0] });
+                        remainingCode = remainingCode.slice(match[0].length).trim();
+                        foundToken = true;
+                        break;
+                    }
                 }
-              });
-            } else {
-              const pattern = tokens[key];
-              let match;
-              const regex = new RegExp(pattern, 'g');
-              while ((match = regex.exec(code)) !== null) {
-                tokenizedCode.push({ type: key, value: match[0], start: match.index, end: regex.lastIndex });
-              }
+
+                if (!foundToken) {
+                    console.log('Erro: Token inválido na posição:', remainingCode);
+                    break;
+                }
             }
-          }
-          return tokenizedCode;
+
+            for(let i in tokenizedCode) {
+                if(tokenizedCode[i].type == "IDENTIFIER") {
+                    for(let j in tokens.KEYWORDS) {
+                        if(tokenizedCode[i].value == tokens.KEYWORDS[j]) {
+                            tokenizedCode[i].type = "KEYWORD"
+                        }
+                    }
+                }
+            }
+
+            for(let i in tokenizedCode) {
+                if(tokenizedCode[i].type == "KEYWORD") {
+                        if(tokenizedCode[i].value == "END") {
+                            countEnds += 1;
+                        }
+                }
+            }
+
+            return tokenizedCode;
         }
-        
-        // Código de exemplo
-        const pascalCode = `
-        PROGRAM SimpleProgram;
-        VAR
-            x, y: INTEGER;
-        BEGIN
-            x := 10;
-            y := 20;
-            WRITE(x + y);
-        END.
-        `;
-        
-        // Executando o analisador léxico no código de exemplo
-        function handle() {
-            const tokensFound = tokenize(pascalCode);
-            tokensFound.forEach(token => {
-            console.log(token);
+
+        function parseProgram(tokens) { //Analise Sintática
+            const terminal = document.querySelector('.terminal')
+            function terminalMsg(a, b) {
+                let div = document.createElement('div');
+                div.style.color = 'red'
+                div.innerHTML = `Token "${a}"" inesperado após "${b}"`
+                terminal.appendChild(div)
+            }
+
+            if (
+                (tokens[0].type == 'KEYWORD'  &&  tokens[0].value == "PROGRAM") && 
+                (tokens[1].type == 'IDENTIFIER')  &&
+                (tokens[2].type == "PUNCTUATION"  &&  tokens[2].value == ";")
+            ) {
+                for(let i = 0; i < tokens.length - 1; i++) {
+                    if(tokens[i].type == "IDENTIFIER") {
+                        if(tokens[i + 1].type  !== "OPERATOR"  &&  tokens[i + 1].type  !== "PUNCTUATION") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        }
+                    } else if(tokens[i].type == "NUMBER") {
+                        if(tokens[i + 1].type  !== "OPERATOR"  &&  tokens[i + 1].type  !== "PUNCTUATION") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        }
+                    } else if(tokens[i].type == "OPERATOR") {
+                        if(tokens[i + 1].type  !== "IDENTIFIER"  &&  tokens[i + 1].type  !== "KEYWORD"  &&  tokens[i + 1].type  !== "NUMBER") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        }
+                    }else if(tokens[i].type == "KEYWORD") {
+                        if(tokens[i].value == "VAR"  &&  tokens[i + 1].type !== "IDENTIFIER") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "INTEGER"  &&  tokens[i + 1].value !== ";") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "REAL"  &&  tokens[i + 1].value !== ";") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "BEGIN"  &&  tokens[i + 1].type !== "IDENTIFIER"  &&  tokens[i + 1].type !== "KEYWORD" ) {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "IF"  &&  tokens[i + 1].value !== "(") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "ELSE"  &&  tokens[i + 1].value !== "BEGIN"  &&  tokens[i + 1].value !== "IF" ) {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "THEN"  &&  tokens[i + 1].value !== "BEGIN") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "WRITE"  &&  tokens[i + 1].value !== "(") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        } else if(tokens[i].value == "READ"  &&  tokens[i + 1].value !== "(") {
+                            terminalMsg(tokens[i + 1].value, tokens[i].value)
+                            return false
+                        }
+                    }
+                }
+
+                return true
+            } else {
+                return false;
+            }
+        }
+
+        function convertToJavaScript(tokens) { //Analise Semântica e Transpilação
+            let jsCode = '';
+
+            let varr = false;
+            let begin = false;
+
+            tokens.forEach(token => {
+                if(token.value == "VAR") varr = true;
+                if(varr == true) {
+                    if(token.type == "IDENTIFIER") jsCode += `var ${token.value};`;
+                }
+                if(token.value == "BEGIN"  &&  firstBegin) {
+                    varr = false;
+                    begin = true;
+                    firstBegin = false;
+
+                    return
+                }
+                if(begin == true) {
+                    // for(let i = 0; i <= tabs; i++) {
+                    //     jsCode += "\t"
+                    // }
+
+                    switch(token.type) {
+                        case "IDENTIFIER":
+                            jsCode += `${token.value}`;
+                            break;
+                        case "OPERATOR":
+                            jsCode += ` ${token.value} `;
+                            break;
+                        case "NUMBER":
+                            jsCode += `${token.value}`;
+                            break;
+                        case "PUNCTUATION":
+                            if(token.value == ":"  ||  token.value == ".") {
+                                break
+                            } else {
+                                jsCode += `${token.value}`
+                                break
+                            }
+                        case "KEYWORD":
+                            switch(token.value) {
+                                case "BEGIN":
+                                    jsCode += "{\n\t";
+                                    tabs += 1;
+                                    break;
+                                case "WRITE"  ||  "write":
+                                    jsCode += "console.log";
+                                    break;
+                                case "IF":
+                                    jsCode += "if";
+                                    break;
+                                case "THEN":
+                                    //jsCode += "{\n";
+                                    break;
+                                case "END":
+                                    jsCode += "}\n";
+                                    tabs -= 1;
+                                    break;
+                                case "ELSE":
+                                    jsCode += "else"
+                            }
+                            break;
+                    }
+                }
             });
 
-            p.innerHTML = tokensFound
-        }
-    </script>
+            jsCode = jsCode.slice(0, -2);
 
-    <button onclick="handle()">compile</button>
-    <p id="p"></p>
+            return jsCode.trim();
+        }
+
+        // Executando o analisador léxico no código de exemplo
+        function handle() {
+            const terminal = document.querySelector('.terminal')
+            const pascalCode = document.querySelector('.inputCode').value
+            const tokensFound = tokenize(pascalCode);
+            let div = document.createElement('div');
+            div.innerHTML = `Análise Léxica - Programa:`
+            terminal.appendChild(div)
+            tokensFound.forEach(token => {
+                console.log(token);
+                const div = document.createElement('div');
+                div.style.color = 'blue'
+                div.innerHTML = `token = ${token.value} ------ type = ${token.type}`
+                terminal.appendChild(div)
+            });
+
+            console.log('\nAnálise Sintática - Programa:');
+            div = document.createElement('div');
+            div.innerHTML = `Análise Sintática - Programa:`
+            terminal.appendChild(div)
+            isProgramValid = parseProgram(tokensFound);
+            console.log('Programa válido?', isProgramValid);
+            div = document.createElement('div');
+            div.style.color = isProgramValid ? "green" : "red"
+            div.innerHTML = `Programa válido? ${isProgramValid}`
+            terminal.appendChild(div)
+
+            console.log('\nCódigo convertido para JavaScript:');
+            jsCode = '';
+            jsCode = convertToJavaScript(tokensFound);
+            console.log(jsCode);
+            
+            document.querySelector('.outputCode').value = jsCode.replace(/[,;]/g, "$&\n");
+            jsCode = new Function(jsCode)
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function handleJS() {
+            jsCode();
+        }
+        const textarea = document.querySelector('.inputCode')
+        if(textarea) textarea.value = 
+`PROGRAM SimpleProgram;
+VAR
+    x, y, z: INTEGER;
+BEGIN
+    x := 10;
+    y := 20;
+    IF(x < y) THEN BEGIN
+      z := x + y;
+    END
+    ELSE BEGIN
+      z := y - x;
+    END
+    WRITE(z);
+END.`
+    </script>
 </body>
 </html>
