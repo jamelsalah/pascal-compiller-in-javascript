@@ -95,6 +95,7 @@
         var firstBegin = true;
         var countEnds = 0;
         var tabs = 0
+        var vars = [];
 
 
         function tokenize(code) {  //Analise Léxica
@@ -151,6 +152,7 @@
                 div.style.color = 'red'
                 div.innerHTML = `Token "${a}"" inesperado após "${b}"`
                 terminal.appendChild(div)
+                terminal.scrollTop = terminal.scrollHeight;
             }
 
             if (
@@ -214,22 +216,47 @@
 
         function convertToJavaScript(tokens) { //Analise Semântica e Transpilação
             let jsCode = '';
-
             let varr = false;
             let begin = false;
 
-            tokens.forEach(token => {
+            const terminal = document.querySelector('.terminal')
+            function terminalMsg(msg) {
+                let div = document.createElement('div');
+                div.style.color = 'red'
+                div.innerHTML = `${msg}`
+                terminal.appendChild(div)
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+
+            for(let i in tokens) {
+                const token = tokens[i];
+
                 if(token.value == "VAR") varr = true;
                 if(varr == true) {
-                    if(token.type == "IDENTIFIER") jsCode += `var ${token.value};`;
+                    if(token.type == "IDENTIFIER") {
+                        for(let j in vars) {
+                            const variable = vars[j];
+
+                            if(token.value == variable.value) {
+                                terminalMsg(`var ${token.value} is already been declared`)
+                            }
+                        }
+
+                        jsCode += `var ${token.value};`;
+                        vars.push({
+                            value: `${token.value}`,
+                            type: `${token.type}`
+                        })
+                    }
                 }
                 if(token.value == "BEGIN"  &&  firstBegin) {
                     varr = false;
                     begin = true;
                     firstBegin = false;
 
-                    return
-                }
+                    
+                } else
+
                 if(begin == true) {
                     // for(let i = 0; i <= tabs; i++) {
                     //     jsCode += "\t"
@@ -237,7 +264,19 @@
 
                     switch(token.type) {
                         case "IDENTIFIER":
+                            var variableExistis = false;
+
+                            for(let j in vars) {
+                                const variable = vars[j];
+
+                                if(token.value == variable.value) {
+                                    variableExistis = true;
+                                }
+                            }
+
                             jsCode += `${token.value}`;
+                            if (!variableExistis) terminalMsg(`"${token.value}" wasn't declared.`);
+
                             break;
                         case "OPERATOR":
                             jsCode += ` ${token.value} `;
@@ -277,16 +316,26 @@
                             break;
                     }
                 }
-            });
+            }
 
             jsCode = jsCode.slice(0, -2);
-
             return jsCode.trim();
         }
 
         // Executando o analisador léxico no código de exemplo
         function handle() {
+            isProgramValid;
+            firstBegin = true;
+            countEnds = 0;
+            tabs = 0
+            vars = [];
+
             const terminal = document.querySelector('.terminal')
+            var divs = terminal.querySelectorAll("div");
+
+            divs.forEach(function(div) {
+                terminal.removeChild(div);
+            });
             const pascalCode = document.querySelector('.inputCode').value
             const tokensFound = tokenize(pascalCode);
             let div = document.createElement('div');
@@ -296,8 +345,9 @@
                 console.log(token);
                 const div = document.createElement('div');
                 div.style.color = 'blue'
-                div.innerHTML = `token = ${token.value} ------ type = ${token.type}`
+                div.innerHTML = `token "${token.value}" ------ type = ${token.type}`
                 terminal.appendChild(div)
+                terminal.scrollTop = terminal.scrollHeight;
             });
 
             console.log('\nAnálise Sintática - Programa:');
